@@ -41,7 +41,7 @@ checks:
 
   deployment:
     - id: dockerfile_exists
-      description: "Dockerfile is present and builds successfully"
+      description: "Dockerfile is present"
       required: true
     - id: cloud_run_deployed
       description: "Application is deployed to Google Cloud Run"

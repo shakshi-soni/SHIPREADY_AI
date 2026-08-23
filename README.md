@@ -15,14 +15,14 @@ Incomplete project
       ↓
   ShipReady
       ↓
-Inspect → Plan → Repair → Test → Deploy → Verify
+Inspect → Plan → Repair → Test → Verify
       ↓
-  10 / 10 checks verified
+  8 / 8 required checks verified
       ↓
   READY TO SHIP
 ```
 
-▶ *Demo video: coming soon*
+*(2 additional checks — Cloud Run deployment and its live health check — are evaluated but marked optional in this build; see [Hackathon alignment](#hackathon-alignment) for why.)*
 
 ---
 
@@ -153,22 +153,24 @@ READINESS REPORT — built from the evidence log
 
 ## ✅ The readiness contract
 
-`contract.yaml` defines what "ready" means as data, not opinion — all **10 checks**:
+`contract.yaml` defines what "ready" means as data, not opinion — **8 required checks**, plus 2 optional ones evaluated but not blocking:
 
 ```
 READINESS CONTRACT
 ──────────────────────────────────
-01  README exists
-02  README has real Setup / Usage / Architecture sections (not just headings)
-03  Architecture doc exists (standalone or a substantive README section)
-04  Source entrypoint present
-05  Test suite exists
-06  Test suite passes (real pytest exit code)
-07  Test files unmodified since the run started (SHA-256 hash check)
-08  Dockerfile exists
-09  Deployed to Cloud Run
-10  GET /health → 200, status: healthy
+01  README exists                                          [required]
+02  README has real Setup / Usage / Architecture sections   [required]
+03  Architecture doc exists                                 [required]
+04  Source entrypoint present                                [required]
+05  Test suite exists                                         [required]
+06  Test suite passes (real pytest exit code)                  [required]
+07  Test files unmodified (SHA-256 hash check)                  [required]
+08  Dockerfile exists                                             [required]
+09  Deployed to Cloud Run                                          [optional — not used in this build]
+10  GET /health → 200, status: healthy                               [optional — not used in this build]
 ```
+
+Checks 9 and 10 exist and are honestly evaluated every run — they're just marked `required: false`, since this build runs Gemini-only without Google Cloud infrastructure. See [Hackathon alignment](#hackathon-alignment).
 
 ## Verification engine
 

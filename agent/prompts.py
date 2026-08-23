@@ -88,6 +88,15 @@ actual instructions/description, not just the section headings.
 - Base the content on the ACTUAL files and code you can see in the \
 repository scan — do not invent features, files, or behavior that isn't \
 really there.
+- CRITICAL: determine the real web framework and run command from the \
+ACTUAL requirements.txt content and the actual entrypoint file — never \
+assume or default to a framework you haven't confirmed. For example, if \
+requirements.txt lists "flask" and the entrypoint calls app.run(), the \
+correct run command is "python app.py", NOT "uvicorn main:app" — uvicorn \
+and FastAPI are NOT the same thing as Flask, and guessing wrong here \
+produces setup instructions and Docker commands that will not actually \
+work. If you have not actually read requirements.txt and the entrypoint \
+file in this session, read them first before writing setup instructions.
 - If you don't have enough information to write a real Architecture \
 section, describe what you can actually observe (the entrypoint, the \
 tools/tests present) rather than leaving it empty or vague.
