@@ -1,0 +1,46 @@
+# Environment & secrets
+.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+build/
+dist/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local agent state / evidence (regenerated at runtime)
+state/*.json
+evidence/*.json
+*.log
+
+# Google Cloud — service account keys only, not all JSON
+gcloud-key.json
+service-account*.json
+*credentials*.json
+
+# ShipReady's own checkpoint system stores its git history in a separate
+# .shipready-checkpoint directory inside target-project/ (not a normal
+# .git folder — this avoids the outer repo treating target-project as an
+# embedded submodule). It's local rollback history, not something to commit.
+target-project/.shipready-checkpoint/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

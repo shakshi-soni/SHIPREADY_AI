@@ -1,0 +1,60 @@
+# ============================================
+# ShipReady — Submission Readiness Contract
+# ============================================
+# This file is the deterministic checklist the Verifier checks against.
+# Gemini proposes fixes. Only this contract (via verification/) decides PASS/FAIL.
+
+version: 1
+
+target:
+  supported_languages: ["python"]
+  test_runner: "pytest"
+  entrypoint: "app.py"
+
+checks:
+  documentation:
+    - id: readme_exists
+      description: "README.md is present"
+      required: true
+    - id: readme_min_sections
+      description: "README contains Setup, Usage, and Architecture sections"
+      required: true
+    - id: architecture_doc_exists
+      description: "Architecture description or diagram is present"
+      required: true
+
+  code_quality:
+    - id: source_files_present
+      description: "All source files referenced by the entrypoint exist"
+      required: true
+
+  tests:
+    - id: test_suite_exists
+      description: "At least one test file is present"
+      required: true
+    - id: test_suite_passes
+      description: "pytest exits with code 0"
+      required: true
+    - id: test_files_unmodified
+      description: "Test files are not modified by the agent during repair (integrity check)"
+      required: true
+
+  deployment:
+    - id: dockerfile_exists
+      description: "Dockerfile is present and builds successfully"
+      required: true
+    - id: cloud_run_deployed
+      description: "Application is deployed to Google Cloud Run"
+      # Not required in the current Gemini-only operating mode (no Google
+      # Cloud billing/auth available). Still checked and reported honestly
+      # in evidence — just doesn't block an overall READY result.
+      required: false
+    - id: health_check_passes
+      description: "GET /health returns HTTP 200 with status: healthy"
+      required: false
+
+guardrails:
+  max_agent_steps: 30
+  max_repair_attempts: 3
+  max_deploy_attempts: 2
+  max_execution_time_seconds: 600
