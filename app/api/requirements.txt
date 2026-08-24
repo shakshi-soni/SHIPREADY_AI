@@ -1,48 +1,21 @@
-# ============================================
-# ShipReady — Vercel deployment dependencies
-#
-# Deliberately colocated with api/index.py, not just at the project root.
-# Vercel's @vercel/python builder (used via the "builds" config in
-# vercel.json) resolves requirements.txt relative to the entrypoint file
-# first — a root-only requirements.txt was silently not installed,
-# which is why pytest ended up missing at runtime even though it was
-# correctly listed in the project's main requirements.txt.
-#
-# Includes flask + pytest: the orchestrator subprocess-invokes pytest
-# against target-project/ using the SAME Python environment as this
-# deployed function, so both need to be present here, not just in
-# target-project/requirements.txt.
-# ============================================
-
-# Gemini (via Google GenAI SDK)
 google-genai==2.18.1
 
-# FastAPI Web Framework & Server
 fastapi==0.141.1
 uvicorn[standard]==0.34.0
 
-# Data Validation & Contract Schemas
 pydantic>=2.0.0
 
-# Environment Management
 python-dotenv==1.0.1
 
-# HTTP & Verification
 httpx==0.28.1
 
-# YAML & Markdown Verification
 PyYAML==6.0.2
 mdformat==0.7.19
 
-# Repository & Testing Tools
 GitPython==3.1.44
 pytest==8.3.4
 astor==0.8.1
 
-# Terminal Formatting & Execution Logs
 rich==13.9.4
 
-# Target project's own runtime dependency — needed so pytest can
-# actually import and collect target-project/tests/test_app.py,
-# which does `from app import app, tasks` (a Flask app).
 flask==3.1.3
