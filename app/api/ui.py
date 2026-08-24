@@ -503,4 +503,7 @@ loadContract();
 
 @ui_router.get("/", response_class=HTMLResponse)
 def ui_home():
-    return HTMLResponse(content=_PAGE)
+  return HTMLResponse(
+    content=_PAGE,
+    headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
+  )
