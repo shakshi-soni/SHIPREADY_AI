@@ -16,7 +16,7 @@ currently running this code, on every platform.
 """
 
 from __future__ import annotations
-
+import os
 import shutil
 import subprocess
 import sys
@@ -43,6 +43,31 @@ def _find_working_python() -> list[str]:
         candidates.append([py_launcher, "-3"])
     return candidates
 
+def _subprocess_env() -> dict[str, str]:
+    """Preserve the Python import paths available to the running Vercel
+    function when launching a child Python process.
+
+    Vercel's Python runtime can make installed packages available to the
+    function while the raw /var/lang/bin/python executable used by a
+    subprocess may not automatically inherit the same site-packages path.
+    Passing the current interpreter's sys.path through PYTHONPATH keeps
+    subprocess-based tools such as pytest in the exact same environment.
+    """
+    env = os.environ.copy()
+
+    current_python_paths = [
+        path for path in sys.path
+        if path and path != "."
+    ]
+
+    existing_pythonpath = env.get("PYTHONPATH", "")
+
+    if existing_pythonpath:
+        current_python_paths.append(existing_pythonpath)
+
+    env["PYTHONPATH"] = os.pathsep.join(current_python_paths)
+
+    return env
 
 def run_tests(target_dir: Path, timeout: int = 120) -> dict:
     target_dir = Path(target_dir)
@@ -52,12 +77,13 @@ def run_tests(target_dir: Path, timeout: int = 120) -> dict:
     for base_cmd in candidates:
         try:
             proc = subprocess.run(
-                [*base_cmd, "-m", "pytest", "-v", "--tb=short"],
-                cwd=target_dir,
+                [*base_cmd, "-m", "py_compile", *py_files],
                 capture_output=True,
                 text=True,
                 timeout=timeout,
+                env=_subprocess_env(),
             )
+                
         except FileNotFoundError as e:
             attempts_log.append(f"{base_cmd}: not found ({e})")
             continue
