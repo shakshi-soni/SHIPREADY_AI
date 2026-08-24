@@ -317,10 +317,24 @@ function renderContract(data) {
   });
 }
 
+async function readApiResponse(resp) {
+  const body = await resp.text();
+  let data;
+  try {
+    data = body ? JSON.parse(body) : {};
+  } catch (error) {
+    throw new Error('API returned non-JSON (' + resp.status + '): ' + body.slice(0, 240));
+  }
+  if (!resp.ok) {
+    throw new Error(data.message || data.detail || data.error || ('API request failed (' + resp.status + ')'));
+  }
+  return data;
+}
+
 async function loadContract() {
   try {
     const resp = await fetch('/evidence');
-    const data = await resp.json();
+    const data = await readApiResponse(resp);
     renderContract(data);
   } catch (e) {
     contractCount.textContent = 'unavailable';
@@ -452,7 +466,7 @@ async function runShipReady() {
 
   try {
     const resp = await fetch('/run', { method: 'POST' });
-    const data = await resp.json();
+    const data = await readApiResponse(resp);
     clearInterval(pulseHandle);
 
     const readiness = data.readiness || {};

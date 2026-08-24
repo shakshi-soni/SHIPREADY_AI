@@ -19,7 +19,8 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from google import genai
 from google.genai import types
 
@@ -110,6 +111,15 @@ orchestrator = Orchestrator(
 )
 
 app = FastAPI(title="ShipReady", version="0.1.0")
+
+
+@app.exception_handler(Exception)
+async def json_exception_handler(request: Request, exc: Exception):
+    """Keep unexpected API failures machine-readable for browser clients."""
+    return JSONResponse(
+        status_code=500,
+        content={"status": "error", "message": str(exc)},
+    )
 
 # Routes are registered in app/api/routes.py, which imports the singletons
 # above via app.state so they're constructed exactly once per process,

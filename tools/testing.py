@@ -3,19 +3,19 @@ tools/testing.py — Test & build tools
 
 run_tests() shells out to the real pytest binary against the target
 project — it never asks Gemini whether tests passed, it reads the actual
-exit code. run_build() is a lightweight syntax/import sanity check
-(py_compile), scoped to match ShipReady's declared support target:
-Python projects only (see contract.yaml -> target.supported_languages).
+exit code.
 
-Uses sys.executable (not a hardcoded "python3") so this works correctly
-on Windows, where there is normally no python3.exe on PATH — only
-python.exe. Hardcoding "python3" caused Windows to redirect to a broken
-Microsoft Store app-execution-alias shortcut instead of finding a real
-interpreter. sys.executable always points at the exact interpreter
-currently running this code, on every platform.
+run_build() is a lightweight syntax/import sanity check (py_compile),
+scoped to Python projects.
+
+The subprocess environment preserves the current Python import paths.
+This is important on serverless environments such as Vercel, where
+sys.executable can point to the runtime interpreter while dependencies
+are installed in the function's vendored environment.
 """
 
 from __future__ import annotations
+
 import os
 import shutil
 import subprocess
@@ -24,55 +24,106 @@ from pathlib import Path
 
 
 def _find_working_python() -> list[str]:
-    """Returns candidate [executable, ...] command prefixes to try, in
-    order of preference. sys.executable should always work — but if
-    something in the local environment is redirecting it (a broken PATH,
-    a stale venv, a Windows App Execution Alias shadowing it), fall back
-    to searching for a real interpreter via shutil.which() before giving
-    up. Returns a LIST of candidates to try in order, not just one."""
-    candidates = []
+    """Return candidate Python command prefixes in priority order."""
+    candidates: list[list[str]] = []
+
     if sys.executable:
         candidates.append([sys.executable])
+
     for name in ("python3", "python", "py"):
         found = shutil.which(name)
         if found and [found] not in candidates:
             candidates.append([found])
-    # Windows: `py -3` (the official launcher) sometimes works when nothing else does
+
     py_launcher = shutil.which("py")
     if py_launcher:
-        candidates.append([py_launcher, "-3"])
+        candidate = [py_launcher, "-3"]
+        if candidate not in candidates:
+            candidates.append(candidate)
+
     return candidates
+
+
+def _subprocess_env() -> dict[str, str]:
+    """
+    Preserve the current process's Python import paths for child Python
+    processes.
+
+    On Vercel, the function runtime can use /var/lang/bin/python while
+    installed packages are available through the function's Python
+    environment. Without PYTHONPATH, `python -m pytest` can report
+    `No module named pytest` even though pytest is installed.
+    """
+    env = os.environ.copy()
+
+    existing = env.get("PYTHONPATH", "")
+    current_paths = [path for path in sys.path if path]
+
+    merged: list[str] = []
+
+    for path in current_paths:
+        if path not in merged:
+            merged.append(path)
+
+    if existing:
+        for path in existing.split(os.pathsep):
+            if path and path not in merged:
+                merged.append(path)
+
+    if merged:
+        env["PYTHONPATH"] = os.pathsep.join(merged)
+
+    return env
 
 
 def run_tests(target_dir: Path, timeout: int = 120) -> dict:
     target_dir = Path(target_dir)
     candidates = _find_working_python()
     attempts_log = []
+    env = _subprocess_env()
 
     for base_cmd in candidates:
         try:
             proc = subprocess.run(
-                [*base_cmd, "-m", "pytest", "-v", "--tb=short"],
+                [
+                    *base_cmd,
+                    "-m",
+                    "pytest",
+                    "-v",
+                    "--tb=short",
+                ],
                 cwd=target_dir,
                 capture_output=True,
                 text=True,
                 timeout=timeout,
+                env=env,
             )
+
         except FileNotFoundError as e:
-            attempts_log.append(f"{base_cmd}: not found ({e})")
+            attempts_log.append(
+                f"{base_cmd}: not found ({e})"
+            )
             continue
+
         except subprocess.TimeoutExpired:
             return {
-                "exit_code": -1, "stdout": "", "passed": False,
-                "stderr": f"pytest timed out after {timeout}s",
+                "exit_code": -1,
+                "stdout": "",
+                "passed": False,
+                "stderr": (
+                    f"pytest timed out after {timeout}s"
+                ),
             }
 
-        # Windows' specific "App Execution Alias" redirect signature:
-        # exit code 9009 combined with the Microsoft Store message means
-        # this candidate is broken even though subprocess didn't raise —
-        # try the next candidate instead of accepting this failure.
-        if proc.returncode == 9009 and "Microsoft Store" in proc.stderr:
-            attempts_log.append(f"{base_cmd}: Windows App Execution Alias redirect (exit 9009)")
+        # Windows App Execution Alias failure.
+        if (
+            proc.returncode == 9009
+            and "Microsoft Store" in proc.stderr
+        ):
+            attempts_log.append(
+                f"{base_cmd}: Windows App Execution Alias "
+                f"redirect (exit 9009)"
+            )
             continue
 
         return {
@@ -82,54 +133,85 @@ def run_tests(target_dir: Path, timeout: int = 120) -> dict:
             "passed": proc.returncode == 0,
         }
 
-    # Every candidate failed — this is a genuine environment problem,
-    # not something a source-code patch can ever fix.
     return {
         "exit_code": -1,
         "stdout": "",
         "stderr": (
-            "TEST_ENVIRONMENT_UNAVAILABLE: no working Python interpreter found. "
-            f"Tried: {attempts_log}. This cannot be fixed by patching source code — "
-            "it requires fixing the local Python installation/PATH."
+            "TEST_ENVIRONMENT_UNAVAILABLE: no working Python "
+            "interpreter found. "
+            f"Tried: {attempts_log}. "
+            "This cannot be fixed by patching source code — "
+            "it requires fixing the Python environment."
         ),
         "passed": False,
     }
 
 
 def run_build(target_dir: Path, timeout: int = 60) -> dict:
-    """Compiles every .py file under target_dir to catch syntax errors.
-    This is intentionally lightweight — ShipReady's declared scope is
-    Python + pytest + Cloud Run, not a general-purpose build system."""
+    """
+    Compile every Python source file under target_dir to catch
+    syntax errors.
+    """
     target_dir = Path(target_dir)
+
     py_files = [
-        str(p) for p in target_dir.rglob("*.py")
-        if "tests" not in p.parts  # don't need to "build" test files separately
+        str(path)
+        for path in target_dir.rglob("*.py")
+        if "tests" not in path.parts
     ]
+
     if not py_files:
-        return {"passed": True, "stdout": "No .py files found to compile.", "stderr": "", "exit_code": 0}
+        return {
+            "passed": True,
+            "stdout": "No .py files found to compile.",
+            "stderr": "",
+            "exit_code": 0,
+        }
 
     candidates = _find_working_python()
     attempts_log = []
+    env = _subprocess_env()
 
     for base_cmd in candidates:
         try:
             proc = subprocess.run(
-                [*base_cmd, "-m", "py_compile", *py_files],
+                [
+                    *base_cmd,
+                    "-m",
+                    "py_compile",
+                    *py_files,
+                ],
+                cwd=target_dir,
                 capture_output=True,
                 text=True,
                 timeout=timeout,
+                env=env,
             )
+
         except FileNotFoundError as e:
-            attempts_log.append(f"{base_cmd}: not found ({e})")
+            attempts_log.append(
+                f"{base_cmd}: not found ({e})"
+            )
             continue
+
         except subprocess.TimeoutExpired:
             return {
-                "passed": False, "stdout": "", "exit_code": -1,
-                "stderr": f"Build check timed out after {timeout}s",
+                "passed": False,
+                "stdout": "",
+                "exit_code": -1,
+                "stderr": (
+                    f"Build check timed out after {timeout}s"
+                ),
             }
 
-        if proc.returncode == 9009 and "Microsoft Store" in proc.stderr:
-            attempts_log.append(f"{base_cmd}: Windows App Execution Alias redirect (exit 9009)")
+        if (
+            proc.returncode == 9009
+            and "Microsoft Store" in proc.stderr
+        ):
+            attempts_log.append(
+                f"{base_cmd}: Windows App Execution Alias "
+                f"redirect (exit 9009)"
+            )
             continue
 
         return {
@@ -143,7 +225,8 @@ def run_build(target_dir: Path, timeout: int = 60) -> dict:
         "passed": False,
         "stdout": "",
         "stderr": (
-            "TEST_ENVIRONMENT_UNAVAILABLE: no working Python interpreter found. "
+            "TEST_ENVIRONMENT_UNAVAILABLE: no working Python "
+            "interpreter found. "
             f"Tried: {attempts_log}."
         ),
         "exit_code": -1,
