@@ -40,8 +40,10 @@ os.environ["TARGET_PROJECT_DIR"] = str(_WRITABLE_TARGET)
 os.environ.setdefault(
     "CONTRACT_PATH", str(Path(__file__).parent.parent / "contract.yaml")
 )
-# Local JSON state also needs a writable location on Vercel.
-os.environ.setdefault("SHIPREADY_STATE_DIR", "/tmp/state")
+# Local JSON state also needs a writable location on Vercel. Assign this
+# unconditionally so a dashboard environment variable cannot redirect state
+# back into Vercel's read-only /var/task filesystem.
+os.environ["SHIPREADY_STATE_DIR"] = "/tmp/state"
 Path("/tmp/state").mkdir(parents=True, exist_ok=True)
 
 from app.main import app  # noqa: E402  (must import after env vars are set)
