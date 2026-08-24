@@ -30,18 +30,17 @@ from pathlib import Path
 # Redirect target_dir to a writable /tmp location before app.main is imported,
 # since app.main builds its singletons (Verifier, Orchestrator, etc.) at
 # import time using TARGET_PROJECT_DIR from the environment.
-_SOURCE_TARGET = Path(__file__).parent.parent / "target-project"
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_SOURCE_TARGET = _PROJECT_ROOT / "target-project"
 _WRITABLE_TARGET = Path("/tmp/target-project")
 
 if not _WRITABLE_TARGET.exists():
     shutil.copytree(_SOURCE_TARGET, _WRITABLE_TARGET)
 
 os.environ["TARGET_PROJECT_DIR"] = str(_WRITABLE_TARGET)
-os.environ.setdefault(
-    "CONTRACT_PATH", str(Path(__file__).parent.parent / "contract.yaml")
-)
-# Local JSON state also needs a writable location on Vercel.
-os.environ.setdefault("SHIPREADY_STATE_DIR", "/tmp/state")
+# Keep deployment configuration independent of dashboard environment values.
+os.environ["CONTRACT_PATH"] = str(_PROJECT_ROOT / "contract.yaml")
+os.environ["SHIPREADY_STATE_DIR"] = "/tmp/state"
 Path("/tmp/state").mkdir(parents=True, exist_ok=True)
 
 from app.main import app  # noqa: E402  (must import after env vars are set)

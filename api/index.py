@@ -37,9 +37,7 @@ if not _WRITABLE_TARGET.exists():
     shutil.copytree(_SOURCE_TARGET, _WRITABLE_TARGET)
 
 os.environ["TARGET_PROJECT_DIR"] = str(_WRITABLE_TARGET)
-os.environ.setdefault(
-    "CONTRACT_PATH", str(Path(__file__).parent.parent / "contract.yaml")
-)
+os.environ["CONTRACT_PATH"] = str(Path(__file__).parent.parent / "contract.yaml")
 # Local JSON state also needs a writable location on Vercel. Assign this
 # unconditionally so a dashboard environment variable cannot redirect state
 # back into Vercel's read-only /var/task filesystem.
