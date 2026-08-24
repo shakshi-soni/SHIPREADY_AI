@@ -1,9 +1,8 @@
 # ============================================
 # ShipReady — Core Dependencies
-# Verified: clean install, no conflicts (checked 16 Aug 2026)
 # ============================================
 
-# Gemini (via Google GenAI SDK)
+# Gemini
 google-genai==2.18.1
 
 # FastAPI Web Framework & Server
@@ -30,3 +29,6 @@ astor==0.8.1
 
 # Terminal Formatting & Execution Logs
 rich==13.9.4
+
+# Target project's runtime dependency
+flask==3.1.3
