@@ -37,6 +37,8 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 TARGET_PROJECT_DIR = os.environ.get("TARGET_PROJECT_DIR", "./target-project")
 CONTRACT_PATH = os.environ.get("CONTRACT_PATH", "./contract.yaml")
 STATE_DIR = os.environ.get("SHIPREADY_STATE_DIR", "state")
+if os.environ.get("VERCEL") or STATE_DIR.replace("\\", "/").startswith("/var/task"):
+    STATE_DIR = "/tmp/state"
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash")
 
 MAX_AGENT_STEPS = int(os.environ.get("MAX_AGENT_STEPS", "30"))
